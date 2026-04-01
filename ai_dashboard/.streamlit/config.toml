@@ -1,0 +1,50 @@
+# Streamlit Configuration
+# https://docs.streamlit.io/library/advanced-features/configuration
+
+[theme]
+# Primary accent color
+primaryColor = "#667eea"
+
+# Background color
+backgroundColor = "#ffffff"
+
+# Secondary background color
+secondaryBackgroundColor = "#f8f9fa"
+
+# Text color
+textColor = "#262730"
+
+# Font family
+font = "sans serif"
+
+[client]
+# Show error details
+showErrorDetails = true
+
+# Max message size (MB)
+maxMessageSize = 2048
+
+# Show running time
+showRunningTime = true
+
+[logger]
+# Log level: debug, info, warning, error
+level = "info"
+
+[server]
+# Run on all network interfaces
+#headless = true
+
+# Maximum upload size (MB)
+maxUploadSize = 200
+
+# Enable XSRF protection
+enableXsrfProtection = true
+
+[runner]
+# Magic commands (% and %% at start of line)
+magicEnabled = true
+
+[browser]
+# Share
+gatherUsageStats = false
