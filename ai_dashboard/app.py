@@ -82,15 +82,21 @@ with st.sidebar:
         help="Get your key from https://openrouter.io/keys"
     )
 
+    # Get model options from environment variables
+    model_options_str = os.getenv("AI_MODEL_OPTIONS", "qwen/qwen3.5-9b,qwen/qwen-max,meta-llama/llama-2-70b-chat,deepseek/deepseek-chat")
+    model_options = [m.strip() for m in model_options_str.split(",")]
+    
+    default_model = os.getenv("AI_MODEL")
+    if not default_model:
+        default_model = model_options[0] if model_options else "qwen/qwen-max"
+    elif default_model not in model_options:
+        model_options.insert(0, default_model)
+    
     model = st.selectbox(
         "AI Model",
-        [
-            "qwen/qwen3.5-9b",
-            "qwen/qwen-max",
-            "meta-llama/llama-2-70b-chat",
-            "deepseek/deepseek-chat"
-        ],
-        help="Choose the AI model for analysis"
+        model_options,
+        index=model_options.index(default_model) if default_model in model_options else 0,
+        help="Choose the AI model for analysis (configured via AI_MODEL_OPTIONS and AI_MODEL env vars)"
     )
 
     st.divider()

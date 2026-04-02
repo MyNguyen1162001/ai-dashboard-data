@@ -38,9 +38,10 @@ dashboard.html
 pip install -r requirements.txt
 ```
 
-2. Set up OpenRouter API key:
+2. Set up OpenRouter API key and AI model:
 ```bash
 export OPENROUTER_API_KEY="your-openrouter-api-key"
+export AI_MODEL="qwen/qwen-max"  # Optional: set default model
 ```
 
 ## Usage
@@ -68,9 +69,15 @@ Basic usage:
 python main.py data.csv
 ```
 
-Specify output file and model:
+Specify output file (model controlled by AI_MODEL env var):
 ```bash
-python main.py data.csv -o my_dashboard.html -m qwen/qwen3.5-9b
+python main.py data.csv -o my_dashboard.html
+```
+
+To change model, set environment variable:
+```bash
+export AI_MODEL="qwen/qwen3.5-9b"
+python main.py data.csv
 ```
 
 ### Supported Models
