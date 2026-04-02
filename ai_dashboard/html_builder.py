@@ -7,6 +7,24 @@ from typing import Dict, List, Any
 from jinja2 import Environment, FileSystemLoader
 
 
+def format_human_readable(value: float) -> str:
+    """Format large numbers with K/M/B/T suffixes."""
+    abs_val = abs(value)
+    sign = "-" if value < 0 else ""
+    if abs_val >= 1_000_000_000_000:
+        return f"{sign}{abs_val / 1_000_000_000_000:.1f}T"
+    elif abs_val >= 1_000_000_000:
+        return f"{sign}{abs_val / 1_000_000_000:.1f}B"
+    elif abs_val >= 1_000_000:
+        return f"{sign}{abs_val / 1_000_000:.1f}M"
+    elif abs_val >= 10_000:
+        return f"{sign}{abs_val / 1_000:.1f}K"
+    elif isinstance(value, float):
+        return f"{sign}{abs_val:,.2f}"
+    else:
+        return f"{sign}{abs_val:,}"
+
+
 class HTMLBuilder:
     """Assembles HTML dashboard using jinja2 templates."""
 
@@ -48,7 +66,7 @@ class HTMLBuilder:
 
         for key, value in list(kpis.items())[:4]:  # Limit to 4 KPI cards
             if isinstance(value, (int, float)):
-                formatted_value = f"{value:,.2f}" if isinstance(value, float) else f"{value:,}"
+                formatted_value = format_human_readable(value)
             else:
                 formatted_value = str(value)
 

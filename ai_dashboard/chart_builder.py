@@ -12,6 +12,15 @@ class ChartBuilder:
     """Generates interactive plotly charts and exports as JSON specs."""
 
     @staticmethod
+    def _apply_compact_ticks(fig: go.Figure, axis: str = "y") -> None:
+        """Apply compact K/M/B formatting to a numeric axis."""
+        # Plotly's ~s uses SI prefixes (k, M, G) — close enough for dashboards
+        if axis == "y":
+            fig.update_yaxes(tickformat="~s")
+        elif axis == "x":
+            fig.update_xaxes(tickformat="~s")
+
+    @staticmethod
     def build_chart(data: pd.DataFrame, config: Dict[str, Any]) -> str:
         """Build a single chart and return as JSON spec."""
         if data.empty:
@@ -71,6 +80,7 @@ class ChartBuilder:
             template="plotly_white",
             height=400
         )
+        ChartBuilder._apply_compact_ticks(fig)
         return fig
 
     @staticmethod
@@ -100,6 +110,7 @@ class ChartBuilder:
             template="plotly_white",
             height=400
         )
+        ChartBuilder._apply_compact_ticks(fig)
         return fig
 
     @staticmethod
@@ -117,6 +128,7 @@ class ChartBuilder:
             template="plotly_white",
             height=400
         )
+        ChartBuilder._apply_compact_ticks(fig)
         return fig
 
     @staticmethod
@@ -135,6 +147,7 @@ class ChartBuilder:
             template="plotly_white",
             height=400
         )
+        ChartBuilder._apply_compact_ticks(fig)
         return fig
 
     @staticmethod
@@ -165,6 +178,8 @@ class ChartBuilder:
             template="plotly_white",
             height=400
         )
+        ChartBuilder._apply_compact_ticks(fig)
+        ChartBuilder._apply_compact_ticks(fig, axis="x")
         return fig
 
     @staticmethod
@@ -180,6 +195,7 @@ class ChartBuilder:
             template="plotly_white",
             height=400
         )
+        ChartBuilder._apply_compact_ticks(fig)
         return fig
 
     @staticmethod
@@ -274,8 +290,8 @@ class ChartBuilder:
             height=400,
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
         )
-        fig.update_yaxes(title_text=y_col, secondary_y=False)
-        fig.update_yaxes(title_text=y2_col, secondary_y=True)
+        fig.update_yaxes(title_text=y_col, tickformat="~s", secondary_y=False)
+        fig.update_yaxes(title_text=y2_col, tickformat="~s", secondary_y=True)
         fig.update_xaxes(title_text=x_col)
         return fig
 

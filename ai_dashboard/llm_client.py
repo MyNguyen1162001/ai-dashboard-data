@@ -34,9 +34,9 @@ class LLMClient:
             print(f"Error calling OpenRouter API: {e}")
             return self._default_schema_response()
 
-    def generate_narrative(self, aggregated_data: str) -> Dict[str, Any]:
+    def generate_narrative(self, aggregated_data: str, chart_count: int = 0) -> Dict[str, Any]:
         """Send aggregated results to LLM and get insights."""
-        prompt = get_narrative_prompt(aggregated_data)
+        prompt = get_narrative_prompt(aggregated_data, chart_count)
 
         try:
             response = self._call_api(prompt)

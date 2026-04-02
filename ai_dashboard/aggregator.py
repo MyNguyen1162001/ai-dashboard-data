@@ -63,6 +63,10 @@ class DataAggregator:
             agg_func = "mean"
         title = chart_config.get("title", "")
 
+        # Guard: non-numeric y columns can only use "count"
+        if y_col and y_col in self.df.columns and not pd.api.types.is_numeric_dtype(self.df[y_col]):
+            agg_func = "count"
+
         # --- table: return aggregated, sorted data ---
         if chart_type == "table":
             columns = chart_config.get("columns")
@@ -85,8 +89,12 @@ class DataAggregator:
                     # Separate categorical (group) cols from numeric cols
                     numeric_cols = [c for c in valid_cols if c not in valid_group and pd.api.types.is_numeric_dtype(subset[c])]
                     if numeric_cols:
-                        agg_dict = {c: agg_func for c in numeric_cols}
-                        subset = subset.groupby(valid_group, as_index=False).agg(agg_dict)
+                        safe_agg = agg_func if agg_func == "count" else agg_func
+                        agg_dict = {c: safe_agg for c in numeric_cols}
+                        try:
+                            subset = subset.groupby(valid_group, as_index=False).agg(agg_dict)
+                        except TypeError:
+                            subset = subset.groupby(valid_group, as_index=False).agg({c: "count" for c in numeric_cols})
                     else:
                         subset = subset.drop_duplicates(subset=valid_group)
 
@@ -121,7 +129,8 @@ class DataAggregator:
             z_col = chart_config.get("z")
             if x_col not in self.df.columns or y_col not in self.df.columns or z_col not in self.df.columns:
                 return pd.DataFrame(), {}
-            data = self.df.groupby([x_col, y_col])[z_col].agg(agg_func).reset_index()
+            z_agg = agg_func if pd.api.types.is_numeric_dtype(self.df[z_col]) else "count"
+            data = self.df.groupby([x_col, y_col])[z_col].agg(z_agg).reset_index()
             data.columns = [x_col, y_col, z_col]
             return data, {
                 "type": "heatmap",
@@ -137,7 +146,10 @@ class DataAggregator:
             if x_col not in self.df.columns or y_col not in self.df.columns:
                 return pd.DataFrame(), {}
             if y2_col and y2_col in self.df.columns:
-                data = self.df.groupby(x_col).agg({y_col: agg_func, y2_col: agg_func}).reset_index()
+                agg_map = {}
+                for c in [y_col, y2_col]:
+                    agg_map[c] = agg_func if pd.api.types.is_numeric_dtype(self.df[c]) else "count"
+                data = self.df.groupby(x_col).agg(agg_map).reset_index()
                 data = data.sort_values(by=x_col)
                 return data, {
                     "type": "combo",
@@ -184,7 +196,10 @@ class DataAggregator:
                 return data, {"type": chart_type, "title": title}
 
         # Aggregate for other chart types and non-temporal x columns
-        aggregated = self.df.groupby(x_col)[y_col].agg(agg_func).reset_index()
+        try:
+            aggregated = self.df.groupby(x_col)[y_col].agg(agg_func).reset_index()
+        except TypeError:
+            aggregated = self.df.groupby(x_col)[y_col].agg("count").reset_index()
 
         # For line/scatter charts, sort by x-value; for others, sort by y-value descending
         if chart_type in ["scatter", "line"]:
@@ -228,9 +243,14 @@ class DataAggregator:
         if "charts" in self.aggregated_results:
             summary += "Chart Data:\n"
             for idx, (data, metadata) in self.aggregated_results["charts"].items():
+                chart_title = metadata.get("title", "Untitled")
+                chart_type = metadata.get("type", "unknown")
+                summary += f"\nChart {idx + 1} — \"{chart_title}\" ({chart_type}):\n"
                 if not data.empty:
-                    summary += f"\nChart {idx + 1} ({metadata.get('type', 'unknown')}):\n"
-                    summary += f"  {metadata}\n"
-                    summary += f"  Top rows:\n{data.head(3).to_string()}\n"
+                    summary += f"  Columns: {', '.join(data.columns.tolist())}\n"
+                    summary += f"  Rows: {len(data)}\n"
+                    summary += f"  Sample data:\n{data.head(5).to_string()}\n"
+                else:
+                    summary += "  No data available.\n"
 
         return summary

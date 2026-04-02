@@ -85,22 +85,27 @@ Schema:
 {schema_summary}"""
 
 
-def get_narrative_prompt(aggregated_data: str) -> str:
+def get_narrative_prompt(aggregated_data: str, chart_count: int) -> str:
     """Generate prompt for narrative insights from aggregated data."""
     return f"""You are a business analyst. Given these aggregated data results, write:
-1. One short insight (2 sentences max) for each chart
+1. EXACTLY {chart_count} short insights — one per chart, in the same order as the charts listed below
 2. One overall summary of the key findings (3 sentences max)
 
-Keep insights factual and based only on the data provided.
-IMPORTANT: Only reference actual values present in the data. Do not invent, scale, or format values
-(e.g. do not convert raw numbers to dollar amounts unless the data explicitly contains currency).
+RULES:
+- You MUST return EXACTLY {chart_count} items in the "chart_insights" array — no more, no fewer
+- Each insight should be 1-2 sentences, factual, and based only on the data provided
+- Reference the chart title in each insight so it's clear which chart it belongs to
+- Highlight the most notable pattern, outlier, or comparison visible in that chart's data
+- Do NOT invent, scale, or format values (e.g. do not convert raw numbers to dollar amounts unless the data explicitly contains currency)
+- If a chart's data is too sparse for a meaningful insight, still provide a brief observation (e.g. "Data is concentrated in the lower range with few outliers")
+
 Use this JSON format for output:
 
 {{
   "chart_insights": [
-    "Insight for first chart",
-    "Insight for second chart",
-    "Insight for third chart"
+    "Insight for chart 1",
+    "Insight for chart 2",
+    ...exactly {chart_count} items...
   ],
   "overall_summary": "Overall summary of findings"
 }}

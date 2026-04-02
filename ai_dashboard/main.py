@@ -133,7 +133,7 @@ def main():
 
     try:
         aggregated_summary = aggregator.get_summary_string()
-        narrative = llm.generate_narrative(aggregated_summary)
+        narrative = llm.generate_narrative(aggregated_summary, chart_count=len(charts_json))
         chart_insights = narrative.get("chart_insights", [])
         overall_summary = narrative.get("overall_summary", "")
         print(f"✓ Generated {len(chart_insights)} chart insights + overall summary")
