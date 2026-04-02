@@ -27,7 +27,8 @@ class LLMClient:
         try:
             response = self._call_api(prompt)
             result = self._parse_json(response)
-            result["reasoning"] = self._extract_reasoning(response)
+            text_reasoning = self._extract_reasoning(response)
+            result["reasoning"] = text_reasoning or result.get("reasoning", "")
             return result
         except Exception as e:
             print(f"Error calling OpenRouter API: {e}")

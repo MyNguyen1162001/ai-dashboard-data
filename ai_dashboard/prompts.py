@@ -42,6 +42,7 @@ First, think step by step about:
 
 Then output your final decision as JSON wrapped in ```json ... ```:
 {{
+  "reasoning": "your step-by-step analysis here",
   "dashboard_title": "string",
   "kpis": [
     {{"column": "column_name1", "agg": "sum"}},
