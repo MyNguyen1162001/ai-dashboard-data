@@ -12,7 +12,8 @@ class HTMLBuilder:
 
     def __init__(self, template_dir: str = "templates"):
         """Initialize jinja2 environment."""
-        self.env = Environment(loader=FileSystemLoader(template_dir))
+        base_dir = Path(__file__).parent
+        self.env = Environment(loader=FileSystemLoader(base_dir / template_dir))
 
     def build(self,
               title: str,

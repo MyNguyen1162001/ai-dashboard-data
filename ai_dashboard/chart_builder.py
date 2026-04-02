@@ -61,7 +61,7 @@ class ChartBuilder:
     def _build_bar(data: pd.DataFrame, x_col: str, y_col: str, title: str = "") -> go.Figure:
         """Build vertical bar chart (x=categories/dates, y=values)."""
         fig = go.Figure(
-            data=[go.Bar(x=data[x_col], y=data[y_col], marker=dict(color="#8B0000"), orientation="v")]
+            data=[go.Bar(x=data[x_col].tolist(), y=data[y_col].tolist(), marker=dict(color="#8B0000"), orientation="v")]
         )
         fig.update_layout(
             title=title,
@@ -106,7 +106,7 @@ class ChartBuilder:
     def _build_line(data: pd.DataFrame, x_col: str, y_col: str, title: str = "") -> go.Figure:
         """Build line chart."""
         fig = go.Figure(
-            data=[go.Scatter(x=data[x_col], y=data[y_col], mode="lines+markers",
+            data=[go.Scatter(x=data[x_col].tolist(), y=data[y_col].tolist(), mode="lines+markers",
                             line=dict(color="#ff7f0e", width=2), marker=dict(size=6))]
         )
         fig.update_layout(
@@ -123,7 +123,7 @@ class ChartBuilder:
     def _build_area(data: pd.DataFrame, x_col: str, y_col: str, title: str = "") -> go.Figure:
         """Build area chart."""
         fig = go.Figure(
-            data=[go.Scatter(x=data[x_col], y=data[y_col], mode="lines+markers",
+            data=[go.Scatter(x=data[x_col].tolist(), y=data[y_col].tolist(), mode="lines+markers",
                             fill="tozeroy", line=dict(color="#2ca02c", width=2),
                             marker=dict(size=6))]
         )
@@ -141,7 +141,7 @@ class ChartBuilder:
     def _build_pie(data: pd.DataFrame, x_col: str, y_col: str, title: str = "") -> go.Figure:
         """Build pie chart."""
         fig = go.Figure(
-            data=[go.Pie(labels=data[x_col], values=data[y_col])]
+            data=[go.Pie(labels=data[x_col].tolist(), values=data[y_col].tolist())]
         )
         fig.update_layout(
             title=title,
@@ -154,7 +154,7 @@ class ChartBuilder:
     def _build_scatter(data: pd.DataFrame, x_col: str, y_col: str, title: str = "") -> go.Figure:
         """Build scatter plot."""
         fig = go.Figure(
-            data=[go.Scatter(x=data[x_col], y=data[y_col], mode="markers",
+            data=[go.Scatter(x=data[x_col].tolist(), y=data[y_col].tolist(), mode="markers",
                             marker=dict(size=8, color="#2ca02c"))]
         )
         fig.update_layout(
@@ -171,7 +171,7 @@ class ChartBuilder:
     def _build_box(data: pd.DataFrame, x_col: str, y_col: str, title: str = "") -> go.Figure:
         """Build box plot."""
         fig = go.Figure(
-            data=[go.Box(x=data[x_col], y=data[y_col], marker=dict(color="#d62728"))]
+            data=[go.Box(x=data[x_col].tolist(), y=data[y_col].tolist(), marker=dict(color="#d62728"))]
         )
         fig.update_layout(
             title=title,
@@ -207,7 +207,29 @@ class ChartBuilder:
 
     @staticmethod
     def _build_table(data: pd.DataFrame, title: str = "") -> go.Figure:
-        """Build tabular view showing top rows of aggregated data."""
+        """Build tabular view with in-cell bar decorations for numeric columns."""
+        n_rows = len(data)
+        # Build per-column fill colors: numeric cols get gradient bars, others get alternating gray/white
+        col_fills = []
+        for col in data.columns:
+            if pd.api.types.is_numeric_dtype(data[col]):
+                col_min = data[col].min()
+                col_max = data[col].max()
+                if col_max > col_min:
+                    # Map values to a red gradient: lightest (#FAE8E8) → darkest (#D4856A)
+                    colors = []
+                    for val in data[col]:
+                        ratio = (val - col_min) / (col_max - col_min)
+                        r = int(250 - ratio * (250 - 212))
+                        g = int(232 - ratio * (232 - 133))
+                        b = int(232 - ratio * (232 - 106))
+                        colors.append(f"rgb({r},{g},{b})")
+                    col_fills.append(colors)
+                else:
+                    col_fills.append(["#f9f9f9" if i % 2 == 0 else "white" for i in range(n_rows)])
+            else:
+                col_fills.append(["#f9f9f9" if i % 2 == 0 else "white" for i in range(n_rows)])
+
         fig = go.Figure(
             data=go.Table(
                 header=dict(
@@ -218,8 +240,8 @@ class ChartBuilder:
                     height=32
                 ),
                 cells=dict(
-                    values=[data[col].tolist() for col in data.columns],
-                    fill_color=[["#f9f9f9" if i % 2 == 0 else "white" for i in range(len(data))]],
+                    values=[list(data[col]) for col in data.columns],
+                    fill_color=col_fills,
                     align="left",
                     height=28
                 )
@@ -228,7 +250,7 @@ class ChartBuilder:
         fig.update_layout(
             title=title,
             template="plotly_white",
-            height=max(400, 60 + len(data) * 30)
+            height=max(400, 60 + n_rows * 30)
         )
         return fig
 
@@ -237,11 +259,11 @@ class ChartBuilder:
         """Build dual-axis combo chart: bar for primary metric, line for secondary."""
         fig = make_subplots(specs=[[{"secondary_y": True}]])
         fig.add_trace(
-            go.Bar(x=data[x_col], y=data[y_col], name=y_col, marker_color="#8B0000", opacity=0.8),
+            go.Bar(x=data[x_col].tolist(), y=data[y_col].tolist(), name=y_col, marker_color="#8B0000", opacity=0.8),
             secondary_y=False
         )
         fig.add_trace(
-            go.Scatter(x=data[x_col], y=data[y2_col], name=y2_col,
+            go.Scatter(x=data[x_col].tolist(), y=data[y2_col].tolist(), name=y2_col,
                        mode="lines+markers", line=dict(color="#1f77b4", width=2), marker=dict(size=6)),
             secondary_y=True
         )

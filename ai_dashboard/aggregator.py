@@ -57,20 +57,62 @@ class DataAggregator:
         chart_type = chart_config.get("type")
         x_col = chart_config.get("x")
         y_col = chart_config.get("y")
+        VALID_AGGS = {"sum", "mean", "count", "max", "min", "median"}
         agg_func = chart_config.get("agg", "sum")
+        if not agg_func or agg_func not in VALID_AGGS:
+            agg_func = "mean"
         title = chart_config.get("title", "")
 
-        # --- table: return raw rows for requested columns ---
+        # --- table: return aggregated, sorted data ---
         if chart_type == "table":
             columns = chart_config.get("columns")
+            group_by = chart_config.get("group_by")
+            sort_by = chart_config.get("sort_by")
+
             if columns:
                 valid_cols = [c for c in columns if c in self.df.columns]
             else:
                 valid_cols = self.df.columns.tolist()[:8]
             if not valid_cols:
                 return pd.DataFrame(), {}
-            return self.df[valid_cols].head(25).reset_index(drop=True), {
+
+            subset = self.df[valid_cols]
+
+            # Aggregate if group_by is specified
+            if group_by:
+                valid_group = [c for c in group_by if c in subset.columns]
+                if valid_group:
+                    # Separate categorical (group) cols from numeric cols
+                    numeric_cols = [c for c in valid_cols if c not in valid_group and pd.api.types.is_numeric_dtype(subset[c])]
+                    if numeric_cols:
+                        agg_dict = {c: agg_func for c in numeric_cols}
+                        subset = subset.groupby(valid_group, as_index=False).agg(agg_dict)
+                    else:
+                        subset = subset.drop_duplicates(subset=valid_group)
+
+            # Sort by sort_by column descending, or by first numeric column
+            if sort_by and sort_by in subset.columns:
+                subset = subset.sort_values(by=sort_by, ascending=False)
+            else:
+                # Fallback: sort by first numeric column descending
+                num_cols = subset.select_dtypes(include="number").columns
+                if len(num_cols) > 0:
+                    subset = subset.sort_values(by=num_cols[0], ascending=False)
+
+            return subset.head(25).reset_index(drop=True), {
                 "type": "table",
+                "title": title
+            }
+
+        # --- box: pass raw data (no aggregation) so plotly can compute quartiles ---
+        if chart_type == "box":
+            if x_col not in self.df.columns or y_col not in self.df.columns:
+                return pd.DataFrame(), {}
+            data = self.df[[x_col, y_col]].dropna()
+            return data, {
+                "type": "box",
+                "x_label": x_col,
+                "y_label": y_col,
                 "title": title
             }
 
@@ -109,6 +151,19 @@ class DataAggregator:
 
         if x_col not in self.df.columns or y_col not in self.df.columns:
             return pd.DataFrame(), {}
+
+        # Guard against x and y being the same column (causes reset_index conflict)
+        if x_col == y_col:
+            data = self.df[[x_col]].copy()
+            data["count"] = 1
+            aggregated = data.groupby(x_col)["count"].sum().reset_index()
+            aggregated.columns = [x_col, f"{x_col}_count"]
+            return aggregated, {
+                "type": chart_type,
+                "x_label": x_col,
+                "y_label": f"{x_col}_count",
+                "title": title
+            }
 
         # For line and scatter charts, try to preserve temporal/sequential order
         if chart_type in ["scatter", "line"]:
