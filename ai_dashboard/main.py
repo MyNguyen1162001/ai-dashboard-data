@@ -13,7 +13,7 @@ from schema_detector import SchemaDetector
 from llm_client import LLMClient
 from aggregator import DataAggregator
 from chart_builder import ChartBuilder
-from html_builder import HTMLBuilder
+from html_builder import HTMLBuilder, format_human_readable
 
 
 def load_data(file_path: str) -> pd.DataFrame:
@@ -38,6 +38,45 @@ def load_data(file_path: str) -> pd.DataFrame:
     return df
 
 
+def compute_headline_kpi(df: pd.DataFrame, headline_config: dict) -> dict:
+    """Compute the headline KPI value from LLM config."""
+    if not headline_config:
+        return None
+
+    col = headline_config.get("column")
+    agg = headline_config.get("agg", "mean")
+    label = headline_config.get("label", "KEY METRIC")
+    suffix = headline_config.get("suffix", "")
+
+    if not col or col not in df.columns:
+        return None
+
+    if not pd.api.types.is_numeric_dtype(df[col]):
+        return None
+
+    if agg == "sum":
+        raw_value = float(df[col].sum())
+    elif agg == "mean":
+        raw_value = float(df[col].mean())
+    elif agg == "count":
+        raw_value = int(df[col].count())
+    elif agg == "max":
+        raw_value = float(df[col].max())
+    elif agg == "min":
+        raw_value = float(df[col].min())
+    else:
+        raw_value = float(df[col].mean())
+
+    formatted = format_human_readable(raw_value)
+
+    return {
+        "value": formatted,
+        "label": label,
+        "suffix": suffix,
+        "sub": f"{int(raw_value):,}" if raw_value > 10000 else ""
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description="AI Dashboard Generator")
     parser.add_argument("input_file", help="Input data file (CSV, Excel, or JSON)")
@@ -46,7 +85,7 @@ def main():
 
     # Load environment variables
     load_dotenv(Path(__file__).parent / ".env")
-    
+
     # Get LLM model from environment variable (required)
     model = os.getenv("AI_MODEL")
     if not model:
@@ -82,6 +121,8 @@ def main():
             print("⚠️  LLM returned empty analysis, using defaults")
             schema_analysis = {
                 "dashboard_title": "Data Dashboard",
+                "subtitle": "",
+                "headline_kpi": None,
                 "kpis": [{"column": col, "agg": "sum"} for col in schema['metrics'][:4]],
                 "charts": [],
                 "group_by": schema['dimensions'][0] if schema['dimensions'] else None
@@ -95,12 +136,19 @@ def main():
         print(f"⚠️  LLM error: {e}, using defaults")
         schema_analysis = {
             "dashboard_title": "Data Dashboard",
+            "subtitle": "",
+            "headline_kpi": None,
             "kpis": [{"column": col, "agg": "sum"} for col in schema['metrics'][:4]],
             "charts": [],
             "group_by": schema['dimensions'][0] if schema['dimensions'] else None
         }
 
-    # Step 4: Data Aggregation
+    # Step 4: Compute headline KPI
+    headline_kpi = compute_headline_kpi(df, schema_analysis.get("headline_kpi"))
+    if headline_kpi:
+        print(f"✓ Headline KPI: {headline_kpi['value']} {headline_kpi.get('suffix', '')}")
+
+    # Step 5: Data Aggregation
     print("\n📊 Aggregating data...")
     aggregator = DataAggregator(df)
 
@@ -114,7 +162,7 @@ def main():
     chart_data_dict = aggregator.prepare_all_charts(charts_config)
     print(f"✓ Prepared {len(chart_data_dict)} charts")
 
-    # Step 5: Generate Charts
+    # Step 6: Generate Charts
     print("\n📈 Generating charts...")
     charts_json = []
     for idx, (data, metadata) in chart_data_dict.items():
@@ -126,23 +174,29 @@ def main():
         except Exception as e:
             print(f"  ⚠️  Chart {idx + 1} failed: {e}")
 
-    # Step 6: Generate Narrative
+    # Step 7: Generate Narrative
     print("\n✍️  Generating insights...")
     chart_insights = []
     overall_summary = ""
+    insight_bullets = []
 
     try:
         aggregated_summary = aggregator.get_summary_string()
         narrative = llm.generate_narrative(aggregated_summary, chart_count=len(charts_json))
         chart_insights = narrative.get("chart_insights", [])
         overall_summary = narrative.get("overall_summary", "")
-        print(f"✓ Generated {len(chart_insights)} chart insights + overall summary")
+        insight_bullets = narrative.get("insight_bullets", [])
+        print(f"✓ Generated {len(chart_insights)} chart insights + {len(insight_bullets)} callout bullets")
     except Exception as e:
         print(f"⚠️  Narrative generation failed: {e}")
         chart_insights = ["Chart analysis in progress."] * len(charts_json)
         overall_summary = "Analysis complete."
 
-    # Step 7: Build HTML
+    # Extract chart badges and titles from config
+    chart_badges = [c.get("badge", "") for c in charts_config[:len(charts_json)]]
+    chart_titles = [c.get("title", "") for c in charts_config[:len(charts_json)]]
+
+    # Step 8: Build HTML
     print("\n🎨 Building HTML dashboard...")
     html_builder = HTMLBuilder(template_dir="templates")
     html_content = html_builder.build(
@@ -150,10 +204,16 @@ def main():
         kpis=kpis,
         charts_json=charts_json,
         chart_insights=chart_insights,
-        overall_summary=overall_summary
+        overall_summary=overall_summary,
+        subtitle=schema_analysis.get("subtitle", ""),
+        headline_kpi=headline_kpi,
+        insight_bullets=insight_bullets,
+        kpi_configs=schema_analysis.get("kpis", []),
+        chart_badges=chart_badges,
+        chart_titles=chart_titles
     )
 
-    # Step 8: Save output
+    # Step 9: Save output
     output_path = Path(args.output)
     output_path.write_text(html_content)
     print(f"✓ Dashboard saved to: {output_path.absolute()}")

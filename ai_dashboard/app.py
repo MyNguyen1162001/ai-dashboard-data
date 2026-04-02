@@ -16,7 +16,7 @@ from schema_detector import SchemaDetector
 from llm_client import LLMClient
 from aggregator import DataAggregator
 from chart_builder import ChartBuilder
-from html_builder import HTMLBuilder
+from html_builder import HTMLBuilder, format_human_readable
 from prompts import get_schema_analysis_prompt
 
 # Load environment variables
@@ -206,6 +206,8 @@ if generate_button:
                     st.write("⚠️  LLM returned empty analysis, using defaults")
                     schema_analysis = {
                         "dashboard_title": "Data Dashboard",
+                        "subtitle": "",
+                        "headline_kpi": None,
                         "kpis": schema['metrics'][:4],
                         "charts": [],
                         "group_by": schema['dimensions'][0] if schema['dimensions'] else None
@@ -244,22 +246,45 @@ if generate_button:
                     except Exception as e:
                         st.write(f"  ⚠️  Chart {idx + 1} failed: {e}")
 
+                # Step 5b: Compute headline KPI
+                headline_kpi = None
+                headline_cfg = schema_analysis.get("headline_kpi")
+                if headline_cfg:
+                    col = headline_cfg.get("column")
+                    agg = headline_cfg.get("agg", "mean")
+                    if col and col in df.columns and pd.api.types.is_numeric_dtype(df[col]):
+                        agg_map = {"sum": "sum", "mean": "mean", "count": "count", "max": "max", "min": "min"}
+                        raw = float(getattr(df[col], agg_map.get(agg, "mean"))())
+                        headline_kpi = {
+                            "value": format_human_readable(raw),
+                            "label": headline_cfg.get("label", "KEY METRIC"),
+                            "suffix": headline_cfg.get("suffix", ""),
+                            "sub": f"{int(raw):,}" if raw > 10000 else ""
+                        }
+                        st.write(f"✓ Headline KPI: {headline_kpi['value']}")
+
                 # Step 6: Generate Narrative
                 st.write("")
                 st.write("✍️  Generating insights...")
                 chart_insights = []
                 overall_summary = ""
+                insight_bullets = []
 
                 try:
                     aggregated_summary = aggregator.get_summary_string()
                     narrative = llm.generate_narrative(aggregated_summary, chart_count=len(charts_json))
                     chart_insights = narrative.get("chart_insights", [])
                     overall_summary = narrative.get("overall_summary", "")
-                    st.write(f"✓ Generated {len(chart_insights)} chart insights + overall summary")
+                    insight_bullets = narrative.get("insight_bullets", [])
+                    st.write(f"✓ Generated {len(chart_insights)} chart insights + {len(insight_bullets)} callout bullets")
                 except Exception as e:
                     st.write(f"⚠️  Narrative generation failed: {e}")
                     chart_insights = ["Analysis complete."] * len(charts_json)
                     overall_summary = "Dashboard generated successfully."
+
+                # Extract chart badges and titles
+                chart_badges = [c.get("badge", "") for c in charts_config[:len(charts_json)]]
+                chart_titles = [c.get("title", "") for c in charts_config[:len(charts_json)]]
 
                 # Step 7: Build HTML
                 st.write("")
@@ -270,7 +295,13 @@ if generate_button:
                     kpis=kpis,
                     charts_json=charts_json,
                     chart_insights=chart_insights,
-                    overall_summary=overall_summary
+                    overall_summary=overall_summary,
+                    subtitle=schema_analysis.get("subtitle", ""),
+                    headline_kpi=headline_kpi,
+                    insight_bullets=insight_bullets,
+                    kpi_configs=schema_analysis.get("kpis", []),
+                    chart_badges=chart_badges,
+                    chart_titles=chart_titles
                 )
                 st.write(f"✓ Dashboard built successfully")
 
