@@ -28,7 +28,18 @@ def load_data(file_path: str) -> pd.DataFrame:
         dialect = csv.Sniffer().sniff(sample, delimiters=",;\t|")
         df = pd.read_csv(file_path, sep=dialect.delimiter)
     elif file_ext in [".xlsx", ".xls"]:
-        df = pd.read_excel(file_path)
+        try:
+            df = pd.read_excel(file_path, engine='openpyxl')
+        except Exception:
+            try:
+                df = pd.read_excel(file_path, engine='xlrd')
+            except Exception:
+                # File may actually be CSV with wrong extension
+                with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+                    sample = f.read(4096)
+                import csv as csv_mod
+                dialect = csv_mod.Sniffer().sniff(sample, delimiters=",;\t|")
+                df = pd.read_csv(file_path, sep=dialect.delimiter)
     elif file_ext == ".json":
         df = pd.read_json(file_path)
     else:

@@ -119,7 +119,19 @@ with col2:
                 dialect = csv.Sniffer().sniff(sample, delimiters=',;\t|')
                 df = pd.read_csv(uploaded_file, sep=dialect.delimiter)
             elif uploaded_file.name.endswith(('.xlsx', '.xls')):
-                df = pd.read_excel(uploaded_file)
+                try:
+                    df = pd.read_excel(uploaded_file, engine='openpyxl')
+                except Exception:
+                    uploaded_file.seek(0)
+                    try:
+                        df = pd.read_excel(uploaded_file, engine='xlrd')
+                    except Exception:
+                        # File may actually be CSV with wrong extension
+                        uploaded_file.seek(0)
+                        sample = uploaded_file.read(8192).decode('utf-8', errors='replace')
+                        uploaded_file.seek(0)
+                        dialect = csv.Sniffer().sniff(sample, delimiters=',;\t|')
+                        df = pd.read_csv(uploaded_file, sep=dialect.delimiter)
             elif uploaded_file.name.endswith('.json'):
                 df = pd.read_json(uploaded_file)
             else:
@@ -353,7 +365,10 @@ if generate_button:
                     st.metric("Data Rows", len(df))
 
                 st.write("**Selected KPIs:**")
-                st.write(", ".join(kpi_columns))
+                st.write(", ".join(
+                    item.get("column", str(item)) if isinstance(item, dict) else str(item)
+                    for item in kpi_columns
+                ))
 
                 st.write("**Chart Types:**")
                 chart_types = [c.get("type", "unknown") for c in charts_config]
