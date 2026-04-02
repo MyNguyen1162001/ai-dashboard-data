@@ -48,7 +48,7 @@ class ChartBuilder:
     def _build_bar(data: pd.DataFrame, x_col: str, y_col: str) -> go.Figure:
         """Build vertical bar chart (x=categories/dates, y=values)."""
         fig = go.Figure(
-            data=[go.Bar(x=data[x_col], y=data[y_col], marker=dict(color="#1f77b4"), orientation="v")]
+            data=[go.Bar(x=data[x_col], y=data[y_col], marker=dict(color="#8B0000"), orientation="v")]
         )
         fig.update_layout(
             title="",
