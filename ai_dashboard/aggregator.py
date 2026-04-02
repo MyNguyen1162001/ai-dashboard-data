@@ -129,7 +129,13 @@ class DataAggregator:
             z_col = chart_config.get("z")
             if x_col not in self.df.columns or y_col not in self.df.columns or z_col not in self.df.columns:
                 return pd.DataFrame(), {}
-            z_agg = agg_func if pd.api.types.is_numeric_dtype(self.df[z_col]) else "count"
+            is_numeric_z = pd.api.types.is_numeric_dtype(self.df[z_col])
+            if is_numeric_z and agg_func == "count":
+                z_agg = "sum"
+            elif is_numeric_z:
+                z_agg = agg_func
+            else:
+                z_agg = "count"
             data = self.df.groupby([x_col, y_col])[z_col].agg(z_agg).reset_index()
             data.columns = [x_col, y_col, z_col]
             return data, {

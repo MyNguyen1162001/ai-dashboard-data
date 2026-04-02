@@ -58,7 +58,10 @@ KPI AGGREGATION RULES:
 - For rate, score, satisfaction, percentage-type metrics (satisfaction, rating, conversion_rate, score): use "mean"
 - For price, cost, duration metrics that represent a single value: use "mean"
 
-For chart aggregation, use: "sum", "mean", "count", "max", "min"
+CHART AGGREGATION RULES:
+- For chart aggregation, use: "sum", "mean", "count", "max", "min"
+- NEVER use "count" when the y/z column is already a numeric metric (e.g. sales, quantity, satisfaction). "count" only counts the number of rows and discards the actual metric values, producing misleading charts. Use "sum" or "mean" instead
+- For heatmaps specifically: "agg" applies to the z (metric) column. Use "sum" to show totals or "mean" to show averages — NEVER "count" (which just counts rows per cell and ignores the metric)
 
 First, think step by step about:
 - List ALL dimensions (categorical/date columns) and ALL metrics (numeric columns) in the dataset
