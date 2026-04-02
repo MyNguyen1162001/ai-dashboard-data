@@ -57,7 +57,7 @@ class LLMClient:
             "model": self.model,
             "messages": [{"role": "user", "content": prompt}],
             "max_tokens": 4096,
-            "temperature": 0.7
+            "temperature": 0.1
         }
 
         response = requests.post(

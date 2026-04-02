@@ -42,11 +42,17 @@ def main():
     parser = argparse.ArgumentParser(description="AI Dashboard Generator")
     parser.add_argument("input_file", help="Input data file (CSV, Excel, or JSON)")
     parser.add_argument("--output", "-o", default="dashboard.html", help="Output HTML file")
-    parser.add_argument("--model", "-m", default="qwen/qwen-max", help="OpenRouter model ID")
     args = parser.parse_args()
 
     # Load environment variables
     load_dotenv(Path(__file__).parent / ".env")
+    
+    # Get LLM model from environment variable (required)
+    model = os.getenv("AI_MODEL")
+    if not model:
+        print("❌ Error: AI_MODEL environment variable not set")
+        print("Please set it in your .env file or export AI_MODEL='your-model'")
+        return 1
 
     print("🚀 AI Dashboard Generator")
     print("-" * 50)
@@ -69,14 +75,14 @@ def main():
     # Step 3: LLM Schema Analysis
     print("\n🤖 Analyzing data with AI...")
     try:
-        llm = LLMClient(model=args.model)
+        llm = LLMClient(model=model)
         schema_analysis = llm.analyze_schema(schema_summary)
 
         if not schema_analysis or not schema_analysis.get("charts"):
             print("⚠️  LLM returned empty analysis, using defaults")
             schema_analysis = {
                 "dashboard_title": "Data Dashboard",
-                "kpis": schema['metrics'][:4],
+                "kpis": [{"column": col, "agg": "sum"} for col in schema['metrics'][:4]],
                 "charts": [],
                 "group_by": schema['dimensions'][0] if schema['dimensions'] else None
             }
@@ -89,7 +95,7 @@ def main():
         print(f"⚠️  LLM error: {e}, using defaults")
         schema_analysis = {
             "dashboard_title": "Data Dashboard",
-            "kpis": schema['metrics'][:4],
+            "kpis": [{"column": col, "agg": "sum"} for col in schema['metrics'][:4]],
             "charts": [],
             "group_by": schema['dimensions'][0] if schema['dimensions'] else None
         }

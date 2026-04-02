@@ -12,12 +12,39 @@ class DataAggregator:
         self.df = df.copy()
         self.aggregated_results = {}
 
-    def process_kpis(self, kpi_columns: List[str]) -> Dict[str, float]:
-        """Calculate KPI values (sum, mean, count for each metric)."""
+    def process_kpis(self, kpi_columns: List[Any]) -> Dict[str, float]:
+        """Calculate KPI values using LLM-specified aggregation per metric.
+
+        Accepts either:
+        - List[str]: legacy format, falls back to sum/mean/count
+        - List[Dict]: new format with {column, agg} per KPI
+        """
         kpi_data = {}
 
-        for col in kpi_columns:
-            if col in self.df.columns and pd.api.types.is_numeric_dtype(self.df[col]):
+        for item in kpi_columns:
+            if isinstance(item, dict):
+                col = item.get("column")
+                agg = item.get("agg", "sum")
+            else:
+                col = item
+                agg = None  # legacy: compute all three
+
+            if col not in self.df.columns or not pd.api.types.is_numeric_dtype(self.df[col]):
+                continue
+
+            if agg:
+                if agg == "sum":
+                    kpi_data[f"{col}"] = float(self.df[col].sum())
+                elif agg == "mean":
+                    kpi_data[f"{col}"] = float(self.df[col].mean())
+                elif agg == "count":
+                    kpi_data[f"{col}"] = int(self.df[col].count())
+                elif agg == "max":
+                    kpi_data[f"{col}"] = float(self.df[col].max())
+                elif agg == "min":
+                    kpi_data[f"{col}"] = float(self.df[col].min())
+            else:
+                # Legacy fallback: emit all three
                 kpi_data[f"{col}_sum"] = float(self.df[col].sum())
                 kpi_data[f"{col}_mean"] = float(self.df[col].mean())
                 kpi_data[f"{col}_count"] = int(self.df[col].count())
