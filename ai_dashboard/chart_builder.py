@@ -188,7 +188,7 @@ class ChartBuilder:
         pivot = data.pivot_table(index=y_col, columns=x_col, values=z_col, aggfunc="sum")
         fig = go.Figure(
             data=go.Heatmap(
-                z=pivot.values,
+                z=pivot.values.tolist(),  # tolist() avoids numpy bdata binary encoding in JSON
                 x=pivot.columns.tolist(),
                 y=pivot.index.tolist(),
                 colorscale="Reds",

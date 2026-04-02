@@ -112,16 +112,17 @@ class DataAggregator:
 
         # For line and scatter charts, try to preserve temporal/sequential order
         if chart_type in ["scatter", "line"]:
-            # Try to convert to datetime if not already
             x_data = self.df[x_col]
-            if not pd.api.types.is_datetime64_any_dtype(x_data):
+            # Only attempt datetime conversion for string/object columns — never numeric
+            if not pd.api.types.is_datetime64_any_dtype(x_data) and \
+               (pd.api.types.is_object_dtype(x_data) or pd.api.types.is_string_dtype(x_data)):
                 try:
                     x_data = pd.to_datetime(x_data, errors="coerce")
                 except:
                     pass
 
-            # If we have datetime data, preserve chronological order without aggregation
-            if pd.api.types.is_datetime64_any_dtype(x_data):
+            # If we have datetime data with valid values, preserve chronological order
+            if pd.api.types.is_datetime64_any_dtype(x_data) and x_data.notna().any():
                 data = self.df[[x_col, y_col]].copy()
                 data[x_col] = x_data
                 data = data.sort_values(by=x_col).dropna()

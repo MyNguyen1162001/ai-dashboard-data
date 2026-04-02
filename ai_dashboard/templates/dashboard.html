@@ -256,8 +256,21 @@
     <script>
         // Embed charts
         {% for chart in charts %}
-        const chart_{{ loop.index0 }} = {{ chart|tojson }};
-        Plotly.newPlot('chart-{{ loop.index0 }}', chart_{{ loop.index0 }}.data, chart_{{ loop.index0 }}.layout, {responsive: true});
+        (function() {
+            const chartData = {{ chart|tojson }};
+            const container = document.getElementById('chart-{{ loop.index0 }}');
+            const isTable = chartData.data && chartData.data.some(t => t.type === 'table');
+            if (isTable) {
+                // Tables need full width and auto height to avoid overlapping sibling elements
+                container.closest('.chart-container').style.gridColumn = '1 / -1';
+                container.style.height = 'auto';
+                container.style.minHeight = '400px';
+                container.style.overflowY = 'auto';
+                // Remove fixed height from layout so plotly doesn't clip the table
+                if (chartData.layout) { delete chartData.layout.height; }
+            }
+            Plotly.newPlot('chart-{{ loop.index0 }}', chartData.data, chartData.layout, {responsive: true});
+        })();
         {% endfor %}
     </script>
 </body>
