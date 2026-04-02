@@ -19,11 +19,18 @@ CHART TYPE GUIDANCE:
 - "pie": Best for part-of-whole, percentages. Use single metric breakdown. Only when categories <= 6
 - "scatter": Best for correlation between two numeric metrics
 - "box": Best for distribution and outliers within categories
+- "heatmap": Best for showing a numeric metric across TWO categorical/date dimensions simultaneously (e.g. sales by region × month). Requires x (dim1), y (dim2), z (metric). Use when the data has two natural grouping axes and a single value to compare across them
+- "combo": Best when TWO related metrics share the same x-axis and have different scales (e.g. impressions + click-rate over time). Renders bars for the primary metric and a line for the secondary. Requires x, y (primary/bar), y2 (secondary/line)
+- "table": Always include EXACTLY ONE table chart. It shows the top 25 rows of raw data for the most informative columns. Use columns: list the 4-8 most meaningful column names. This is the drill-down view every dashboard needs
 
 IMPORTANT RULES:
 - If date column has fewer than 15 distinct values, prefer "bar" over "line" or "area"
 - Never use "area" for datasets with fewer than 20 time points — it creates misleading jagged shapes
 - Never use "waterfall" if the metric values are relatively stable across periods — use "bar" instead
+- Use "heatmap" only when there are two meaningful categorical/date dimensions to cross — not as a substitute for bar
+- Use "combo" only when two metrics are thematically related but have different units/scales
+- ALWAYS include exactly one "table" chart — it is mandatory in every dashboard
+- Every chart MUST have a concise, descriptive "title" field (e.g. "Revenue by Region", "Monthly Impressions vs CTR")
 - Choose chart types that best reveal the story in the data, not just what looks impressive
 
 KPI AGGREGATION RULES:
@@ -39,6 +46,9 @@ First, think step by step about:
 - Why you are including or excluding each metric from the charts
 - Which chart type best fits each chosen metric/dimension pair
 - For waterfall charts: estimate whether period-over-period deltas are >5% of the base value
+- Whether a heatmap is warranted (two real categorical dimensions × one metric)
+- Whether a combo chart is warranted (two related metrics with different scales on same x-axis)
+- Which columns to surface in the mandatory table
 
 Then output your final decision as JSON wrapped in ```json ... ```:
 {{
@@ -49,8 +59,11 @@ Then output your final decision as JSON wrapped in ```json ... ```:
     {{"column": "column_name2", "agg": "mean"}}
   ],
   "charts": [
-    {{"type": "bar", "x": "date_or_category_column", "y": "metric_column", "agg": "sum"}},
-    {{"type": "bar", "x": "category_column", "y": "metric_column", "agg": "sum"}}
+    {{"type": "bar", "x": "category_column", "y": "metric_column", "agg": "sum", "title": "Top Categories by Revenue"}},
+    {{"type": "line", "x": "date_column", "y": "metric_column", "agg": "sum", "title": "Revenue Trend Over Time"}},
+    {{"type": "heatmap", "x": "dim1_column", "y": "dim2_column", "z": "metric_column", "agg": "sum", "title": "Sales by Region and Month"}},
+    {{"type": "combo", "x": "date_column", "y": "primary_metric", "y2": "secondary_metric", "agg": "sum", "title": "Impressions vs Click Rate"}},
+    {{"type": "table", "columns": ["col1", "col2", "col3", "col4"], "title": "Detailed Data Breakdown"}}
   ],
   "group_by": "dimension_column_or_null"
 }}

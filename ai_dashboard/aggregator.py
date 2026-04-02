@@ -54,15 +54,64 @@ class DataAggregator:
 
     def prepare_chart_data(self, chart_config: Dict[str, Any]) -> Tuple[pd.DataFrame, Dict[str, Any]]:
         """Prepare aggregated data for a specific chart."""
+        chart_type = chart_config.get("type")
         x_col = chart_config.get("x")
         y_col = chart_config.get("y")
         agg_func = chart_config.get("agg", "sum")
+        title = chart_config.get("title", "")
+
+        # --- table: return raw rows for requested columns ---
+        if chart_type == "table":
+            columns = chart_config.get("columns")
+            if columns:
+                valid_cols = [c for c in columns if c in self.df.columns]
+            else:
+                valid_cols = self.df.columns.tolist()[:8]
+            if not valid_cols:
+                return pd.DataFrame(), {}
+            return self.df[valid_cols].head(25).reset_index(drop=True), {
+                "type": "table",
+                "title": title
+            }
+
+        # --- heatmap: group by two dimensions, aggregate z ---
+        if chart_type == "heatmap":
+            z_col = chart_config.get("z")
+            if x_col not in self.df.columns or y_col not in self.df.columns or z_col not in self.df.columns:
+                return pd.DataFrame(), {}
+            data = self.df.groupby([x_col, y_col])[z_col].agg(agg_func).reset_index()
+            data.columns = [x_col, y_col, z_col]
+            return data, {
+                "type": "heatmap",
+                "x_label": x_col,
+                "y_label": y_col,
+                "z_label": z_col,
+                "title": title
+            }
+
+        # --- combo: group by x, aggregate both y and y2 ---
+        if chart_type == "combo":
+            y2_col = chart_config.get("y2")
+            if x_col not in self.df.columns or y_col not in self.df.columns:
+                return pd.DataFrame(), {}
+            if y2_col and y2_col in self.df.columns:
+                data = self.df.groupby(x_col).agg({y_col: agg_func, y2_col: agg_func}).reset_index()
+                data = data.sort_values(by=x_col)
+                return data, {
+                    "type": "combo",
+                    "x_label": x_col,
+                    "y_label": y_col,
+                    "y2_label": y2_col,
+                    "title": title
+                }
+            # y2 missing — fall through to bar
+            chart_type = "bar"
 
         if x_col not in self.df.columns or y_col not in self.df.columns:
             return pd.DataFrame(), {}
 
         # For line and scatter charts, try to preserve temporal/sequential order
-        if chart_config.get("type") in ["scatter", "line"]:
+        if chart_type in ["scatter", "line"]:
             # Try to convert to datetime if not already
             x_data = self.df[x_col]
             if not pd.api.types.is_datetime64_any_dtype(x_data):
@@ -70,28 +119,29 @@ class DataAggregator:
                     x_data = pd.to_datetime(x_data, errors="coerce")
                 except:
                     pass
-            
+
             # If we have datetime data, preserve chronological order without aggregation
             if pd.api.types.is_datetime64_any_dtype(x_data):
                 data = self.df[[x_col, y_col]].copy()
                 data[x_col] = x_data
                 data = data.sort_values(by=x_col).dropna()
-                return data, {"type": chart_config.get("type")}
+                return data, {"type": chart_type, "title": title}
 
         # Aggregate for other chart types and non-temporal x columns
         aggregated = self.df.groupby(x_col)[y_col].agg(agg_func).reset_index()
-        
+
         # For line/scatter charts, sort by x-value; for others, sort by y-value descending
-        if chart_config.get("type") in ["scatter", "line"]:
+        if chart_type in ["scatter", "line"]:
             aggregated = aggregated.sort_values(by=x_col)
         else:
             aggregated = aggregated.sort_values(by=y_col, ascending=False).head(20)  # Limit to top 20
 
         return aggregated, {
-            "type": chart_config.get("type"),
+            "type": chart_type,
             "x_label": x_col,
             "y_label": f"{y_col} ({agg_func})",
-            "agg_function": agg_func
+            "agg_function": agg_func,
+            "title": title
         }
 
     def prepare_all_charts(self, charts_config: List[Dict[str, Any]]) -> Dict[int, Tuple[pd.DataFrame, Dict]]:
